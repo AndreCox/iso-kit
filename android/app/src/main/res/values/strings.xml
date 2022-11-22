@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">next-template</string>
+    <string name="title_activity_main">next-template</string>
+    <string name="package_name">com.nexttemplate.app</string>
+    <string name="custom_url_scheme">com.nexttemplate.app</string>
+</resources>
