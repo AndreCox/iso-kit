@@ -1,26 +1,14 @@
 //set up mobx store
 import { makeAutoObservable, autorun, reaction } from "mobx";
 
+type isoData = { path: string; name: string; id: number; status: string };
+type isoDataList = isoData[];
 class Store {
-  inputText = "";
-  outputText = "";
-  timesUpdated = 0;
+  //object path to store iso data
+  isoData: isoDataList = [];
 
   constructor() {
     makeAutoObservable(this);
-    reaction(
-      () => this.inputText,
-      () => {
-        this.outputText = this.inputText.split("").reverse().join("");
-        this.timesUpdated++;
-      }
-    );
-    reaction(
-      () => this.outputText,
-      () => {
-        this.inputText = this.outputText.split("").reverse().join("");
-      }
-    );
   }
 }
 

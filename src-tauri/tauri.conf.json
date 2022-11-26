@@ -9,7 +9,7 @@
   "package": { "productName": "iso-kit", "version": "0.1.0" },
 
   "tauri": {
-    "allowlist": { "all": true },
+    "allowlist": { "all": true, "path": { "all": true } },
     "bundle": {
       "active": true,
       "category": "DeveloperTool",
@@ -50,7 +50,7 @@
         "resizable": true,
         "title": "Iso Kit",
         "width": 800,
-        "fileDropEnabled": false
+        "fileDropEnabled": true
       }
     ]
   }
