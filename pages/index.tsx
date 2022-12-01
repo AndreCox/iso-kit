@@ -22,6 +22,8 @@ import { invoke } from "@tauri-apps/api/tauri";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import { dropLoader, basename, fileLoader } from "../helpers/fileLoader";
 import statusColor from "../helpers/statusColor";
+import Spinner from "../components/Spinner";
+import { ftpStore } from "../stores/FtpStore";
 
 const Home = observer(() => {
   const onDrop = (e) => {
@@ -55,6 +57,10 @@ const Home = observer(() => {
   const [processing, setProcessing] = useState(false);
   const [offline, setOffline] = useState(false);
   const [outputDir, setOutputDir] = useState("");
+  const [ftpConnecting, setFtpConnecting] = useState(false);
+  const [ftpConnected, setFtpConnected] = useState(false);
+  const [ftpError, setFtpError] = useState(false);
+  const [ftpStatus, setFtpStatus] = useState("Connect to FTP");
 
   return (
     <div className="p-[0 2rem]">
@@ -130,7 +136,7 @@ const Home = observer(() => {
             }
           >
             <div className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 block w-full text-center  flex-col justify-center">
-              <AnimatePresence>
+              <AnimatePresence mode="popLayout">
                 {store.isoData.length < 1 && (
                   <motion.div
                     initial={{ opacity: 0, scale: 0.9 }}
@@ -142,7 +148,7 @@ const Home = observer(() => {
                 )}
               </AnimatePresence>
             </div>
-            <AnimatePresence initial={false}>
+            <AnimatePresence initial={false} mode="popLayout">
               {store.isoData.map((iso, i) => {
                 return (
                   <motion.li
@@ -224,6 +230,168 @@ const Home = observer(() => {
                 }}
               />
             </div>
+            <Input label="FTP Address" />
+            <Button
+              disabled={ftpConnecting}
+              className={
+                ftpConnected
+                  ? "bg-green-500"
+                  : ftpError
+                  ? "bg-red-500"
+                  : "bg-blue-500" + " transition-all duration-200"
+              }
+              onClick={() => {
+                setFtpError(false);
+                if (!ftpConnecting) {
+                  if (!ftpConnected) {
+                    setFtpConnecting(true);
+                    invoke("ftp_connect", {
+                      address: "ftp.gnu.org:21",
+                    })
+                      .then((result) => {
+                        console.log("We connected to the FTP server!");
+                        setFtpConnecting(false);
+                        setFtpStatus("Connected (Disconnect)");
+                        setFtpConnected(true);
+                        invoke("ftp_auth", {
+                          username: "anonymous",
+                          password: "anonymous",
+                        })
+                          .then((result) => {
+                            console.log("We authenticated to the FTP server!");
+                            invoke("ftp_ls").then((result: string[]) => {
+                              ftpStore.fileList = result;
+                              console.log(result);
+                            });
+                            invoke("ftp_pwd").then((result: string) => {
+                              ftpStore.currentPath = result;
+                            });
+                          })
+                          .catch((e) => {
+                            console.log(
+                              "We failed to authenticate to the FTP server!"
+                            );
+                          });
+                      })
+                      .catch((e) => {
+                        console.log(
+                          "There was an error connecting to the FTP server"
+                        );
+                        setFtpConnecting(false);
+                        setFtpStatus("Error Connecting (Connect)");
+                        setFtpConnected(false);
+                        setFtpError(true);
+                      });
+                  } else {
+                    invoke("ftp_disconnect")
+                      .then((result) => {
+                        console.log("We disconnected from the FTP server!");
+                        setFtpStatus("Disconnected (Connect)");
+                        setFtpConnected(false);
+                      })
+                      .catch((e) => {
+                        console.log(
+                          "There was an error disconnecting from the FTP server"
+                        );
+                        setFtpStatus("Error Disconnecting (Connect)");
+                        setFtpConnected(false);
+                        setFtpError(true);
+                      });
+                  }
+                }
+              }}
+            >
+              <div className="flex flex-row justify-evenly space-x-8 ">
+                <LayoutGroup>
+                  <motion.div
+                    className="flex flex-col justify-center"
+                    layout="position"
+                    transition={{
+                      type: "easeInOut",
+                      duration: 0.25,
+                    }}
+                  >
+                    <p>{ftpStatus}</p>
+                  </motion.div>
+
+                  <AnimatePresence initial={false} mode="popLayout">
+                    {ftpConnecting && (
+                      <motion.div
+                        animate={{
+                          height: "2rem",
+                          width: "2rem",
+                          scale: 1,
+                        }}
+                        initial={{ height: 0, width: 0, scale: 0 }}
+                        exit={{ height: 0, width: 0, scale: 0 }}
+                        transition={{ duration: 0.25, type: "easeInOut" }}
+                        className="flex flex-col justify-center"
+                        layout
+                      >
+                        <Spinner />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </LayoutGroup>
+              </div>
+            </Button>
+            <Button
+              onClick={() => {
+                invoke("ftp_pwd")
+                  .then((result) => {
+                    console.log(result);
+                  })
+                  .catch((e) => {
+                    console.log(
+                      "There was an error getting the FTP server's current directory"
+                    );
+                  });
+                invoke("ftp_ls").then((result) => {
+                  console.log(result);
+                });
+              }}
+            >
+              FTP PWD
+            </Button>
+            <AnimatePresence>
+              {ftpConnected && (
+                <motion.div
+                  className="border rounded-lg p-2 flex flex-col space-y-2"
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.25, type: "easeInOut" }}
+                >
+                  <h4 className="text-center">Select Ftp Transfer Location</h4>
+                  <div className="border rounded-md p-1 py-0">
+                    {ftpStore.currentPath}
+                  </div>
+                  {ftpStore.fileList.length > 0 && (
+                    <div className="border rounded-md p-0">
+                      <ul className="flex flex-col space-y-1">
+                        {ftpStore.fileList.map((file, i) => {
+                          return (
+                            <li
+                              key={i}
+                              className="flex flex-row justify-between"
+                            >
+                              <Button
+                                variant="text"
+                                className="w-full text-start px-1 py-1"
+                              >
+                                <p className="font-normal text-base normal-case  text-black">
+                                  {file}
+                                </p>
+                              </Button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
         <div className="fixed bottom-0 left-0 w-full">
